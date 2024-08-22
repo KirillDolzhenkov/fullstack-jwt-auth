@@ -1,25 +1,31 @@
-const jwt = require('jsonwebtoken')
-const tokenModel = require('../models/token-model')
+const jwt = require('jsonwebtoken');
+const tokenModel = require('../models/token-model');
 
-class TokenService{
+class TokenService {
 
+    // Генерация токенов с указанным временем жизни
     async generateTokens(payload) {
-        const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {expiresIn: '30m'})
-        const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {expiresIn: '30d'})
-        return {
-            accessToken,
-            refreshToken
-        }
+        const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { expiresIn: '30m' });
+        const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+        return { accessToken, refreshToken };
     }
+
+    // Сохранение или обновление токена в базе данных
     async saveToken(userId, refreshToken) {
-        const tokenData = await tokenModel.findOne({user: userId})
-        if(tokenData){
-            tokenData.refreshToken = refreshToken
-            return tokenData.save()
+        try {
+            // Используем findOneAndUpdate с опцией upsert для обновления или создания токена
+            const token = await tokenModel.findOneAndUpdate(
+                { user: userId },
+                { refreshToken },
+                { new: true, upsert: true }
+            );
+            return token;
+        } catch (error) {
+            console.error('Error saving token:', error);
+            throw error; // Прокидываем ошибку дальше, чтобы её можно было обработать выше по цепочке
         }
-        const token = await tokenModel.create({user: userId, refreshToken})
-        return token
     }
 }
 
-module.exports = new TokenService()
+module.exports = new TokenService();
